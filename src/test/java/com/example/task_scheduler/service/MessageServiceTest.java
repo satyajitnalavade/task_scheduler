@@ -4,95 +4,159 @@ import com.example.task_scheduler.entities.Message;
 import com.example.task_scheduler.enums.MessageStatus;
 import com.example.task_scheduler.models.MessageInput;
 import com.example.task_scheduler.repository.MessageRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClientException;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.Month;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-class MessageServiceTest {
-    @Mock
-    private MessageRepository messageRepository;
+public class MessageServiceTest {
 
     @Mock
     private RestTemplate restTemplate;
 
-    @Autowired
-    private MessageService messageService;
+    @Mock
+    private MessageRepository messageRepository;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
+    private MessageService<Message> messageService;
+
+    @BeforeEach
+    public void setup() {
+        MockitoAnnotations.openMocks(this);
+        messageService = new MessageService<>(messageRepository, restTemplate,objectMapper);
+    }
 
     @Test
-    public void processMessage_shouldSetStatusToComplete_whenRequestIsSuccessful() throws Exception {
-        // Arrange
+    public void testProcessMessage_success() throws JsonProcessingException {
+        // Setup
         Message message = new Message();
-        message.setId(1L);
-        message.setMethod(HttpMethod.GET);
-        message.setUrl("https://www.example.com");
-        message.setHeaders(new ObjectMapper().createObjectNode());
-        message.setBody(new ObjectMapper().createObjectNode());
+        message.setUrl("https://example.com");
+        message.setMethod(HttpMethod.POST);
+        message.setHeaders(new ObjectMapper().readTree("{\"Content-Type\":\"application/json\"}"));
+        message.setBody(new ObjectMapper().readTree("{\"name\":\"John\",\"age\":30}"));
         message.setStatus(MessageStatus.PENDING);
-        message.setRetryCount(0);
-        message.setTriggerTime(LocalDateTime.now());
-
-        ResponseEntity<String> responseEntity = new ResponseEntity<>("OK", HttpStatus.OK);
+        message.setRetryCount(1);
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.OK);
         when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenReturn(responseEntity);
 
-        // Act
+        // Execute
         messageService.processMessage(message);
 
-        // Assert
         assertEquals(MessageStatus.COMPLETE, message.getStatus());
-        verify(messageRepository).save(message);
+        assertEquals(2, message.getRetryCount());
+
+        // Verify
+        verify(restTemplate, times(1)).exchange(any(RequestEntity.class), eq(String.class));
+        verify(messageRepository, times(1)).save(any(Message.class));
     }
 
     @Test
-    public void processMessage_shouldSetStatusToFailed_whenRequestFails() throws Exception {
-        // Arrange
+    public void testProcessMessage_fail() throws JsonProcessingException {
+        // Setup
+        Message message = new Message();
+        message.setUrl("https://example.com");
+        message.setMethod(HttpMethod.POST);
+        message.setHeaders(new ObjectMapper().readTree("{\"Content-Type\":\"application/json\"}"));
+        message.setBody(new ObjectMapper().readTree("{\"name\":\"John\",\"age\":30}"));
+        message.setStatus(MessageStatus.PENDING);
+        message.setRetryCount(3);
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.INTERNAL_SERVER_ERROR);
+        when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenThrow(new RuntimeException("Internal Server Error"));
+
+        // Execute
+        messageService.processMessage(message);
+
+        assertEquals(MessageStatus.FAILED, message.getStatus());
+        // Verify
+        verify(restTemplate, times(1)).exchange(any(RequestEntity.class), eq(String.class));
+        verify(messageRepository, times(1)).save(any(Message.class));
+    }
+
+    @Test
+    public void testProcessMessage_retry_Pending() throws JsonProcessingException {
+        // Setup
         Message message = new Message();
         message.setId(1L);
-        message.setMethod(HttpMethod.GET);
-        message.setUrl("https://www.example.com");
-        message.setHeaders(new ObjectMapper().createObjectNode());
-        message.setBody(new ObjectMapper().createObjectNode());
+        message.setUrl("https://example.com");
+        message.setMethod(HttpMethod.POST);
+        message.setHeaders(new ObjectMapper().readTree("{\"Content-Type\":\"application/json\"}"));
+        message.setBody(new ObjectMapper().readTree("{\"name\":\"John\",\"age\":30}"));
         message.setStatus(MessageStatus.PENDING);
         message.setRetryCount(2);
-        message.setTriggerTime(LocalDateTime.now());
+        message.setTriggerTime(LocalDateTime.now().minus(Duration.ofSeconds(30)));
 
-        when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenThrow(new RestClientException("Error"));
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.INTERNAL_SERVER_ERROR);
+        when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenThrow(new RuntimeException("Internal Server Error"));
 
-        // Act
+        // Execute
         messageService.processMessage(message);
 
-        // Assert
-        assertEquals(MessageStatus.FAILED, message.getStatus());
-        verify(messageRepository).save(message);
+        assertEquals(MessageStatus.PENDING, message.getStatus());
+        assertEquals(3, message.getRetryCount());
+        // Verify
+        verify(restTemplate, times(1)).exchange(any(RequestEntity.class), eq(String.class));
+        verify(messageRepository, times(1)).save(any(Message.class));
     }
 
     @Test
-    void processMessage_shouldInvokeMyServiceClient() {
-        Message message = new Message();
-        message.setUrl("http://example.com");
-        message.setMethod(HttpMethod.GET);
-        message.setHeaders(new ObjectMapper().createObjectNode());
-        when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenReturn(new ResponseEntity<>("", HttpStatus.OK));
-        messageService.processMessage(message);
-        verify(restTemplate, times(1)).exchange(any(RequestEntity.class), eq(String.class));
-    }
-}
+    public void testCreateMessage_success() throws JsonProcessingException {
+        // Setup
+        MessageInput messageInput = new MessageInput("https://example.com",
+                "POST",
+                "{\"Content-Type\":\"application/json\"}",
+                "{\"name\":\"John\",\"age\":30}",
+                "PENDING",
+                LocalDateTime.now().minus(Duration.ofSeconds(30)));
 
-//Generated with love by TestMe :) Please report issues and submit feature requests at: http://weirddev.com/forum#!/testme
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
+            Message savedMessage = invocation.getArgument(0);
+            savedMessage.setId(1L);
+            return savedMessage;
+        });
+
+        // Call createMessage()
+        Message result = messageService.CreateMessage(messageInput);
+
+        // Verify the message was saved with the correct data
+        assertEquals(1L, result.getId());
+        assertEquals(messageInput.getUrl(), result.getUrl());
+        assertEquals(messageInput.getHttpmethod(), result.getMethod().toString());
+        assertEquals(messageInput.getHeaders(), new ObjectMapper().writeValueAsString(result.getHeaders()));
+        assertEquals(messageInput.getBody(), new ObjectMapper().writeValueAsString(result.getBody()));
+        assertEquals(MessageStatus.PENDING, result.getStatus());
+        assertEquals(messageInput.getTriggerTime(), result.getTriggerTime());
+
+        verify(messageRepository).save(argThat(message ->
+                message.getUrl().equals(messageInput.getUrl()) &&
+                        message.getStatus().equals(MessageStatus.PENDING) &&
+                        message.getTriggerTime().equals(messageInput.getTriggerTime())
+        ));
+
+    }
+
+
+
+}

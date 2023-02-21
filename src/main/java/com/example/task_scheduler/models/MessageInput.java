@@ -11,21 +11,21 @@ import java.time.LocalDateTime;
 public class MessageInput {
 
     private String url;
-    private HttpMethod httpmethod;
+    private String httpmethod;
 
-    private JsonNode headers;
-    private JsonNode body;
+    private String headers;
+    private String body;
 
-    private MessageStatus status;
+    private String status;
     LocalDateTime triggerTime;
 
 
-    public MessageInput(String url, HttpMethod httpmethod, JsonNode headers, JsonNode body, MessageStatus status,
-                        LocalDateTime triggerTime) {
+    public MessageInput(String url, String httpmethod, String headers, String body, String status, LocalDateTime triggerTime) {
         this.url = url;
         this.httpmethod = httpmethod;
         this.headers = headers;
         this.body = body;
+        this.status = status;
         this.triggerTime = triggerTime;
     }
 
@@ -38,35 +38,35 @@ public class MessageInput {
         this.url = url;
     }
 
-    public HttpMethod getHttpmethod() {
+    public String getHttpmethod() {
         return httpmethod;
     }
 
-    public void setHttpmethod(HttpMethod httpmethod) {
+    public void setHttpmethod(String httpmethod) {
         this.httpmethod = httpmethod;
     }
 
-    public JsonNode getHeaders() {
+    public String getHeaders() {
         return headers;
     }
 
-    public void setHeaders(JsonNode headers) {
+    public void setHeaders(String headers) {
         this.headers = headers;
     }
 
-    public JsonNode getBody() {
+    public String getBody() {
         return body;
     }
 
-    public void setBody(JsonNode body) {
+    public void setBody(String body) {
         this.body = body;
     }
 
-    public MessageStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(MessageStatus status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 
@@ -77,4 +77,14 @@ public class MessageInput {
     public void setTriggerTime(LocalDateTime triggerTime) {
         this.triggerTime = triggerTime;
     }
+
+    public HttpMethod getHttpMethodEnum() {
+        return HttpMethod.valueOf(this.httpmethod.toUpperCase());
+    }
+
+    public MessageStatus getStatusEnum() {
+        return MessageStatus.valueOf(this.status.toUpperCase());
+    }
+
+
 }

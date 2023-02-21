@@ -4,6 +4,7 @@ import com.example.task_scheduler.entities.Message;
 import com.example.task_scheduler.enums.MessageStatus;
 import com.example.task_scheduler.models.MessageInput;
 import com.example.task_scheduler.repository.MessageRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +16,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import javax.transaction.Transactional;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,21 +28,32 @@ import java.util.concurrent.CompletableFuture;
 @Service
 public class MessageService<objectMapper> {
 
-    private final MessageRepository messageRepository;
+    private MessageRepository messageRepository;
     private RestTemplate restTemplate;
+    private ObjectMapper objectMapper;
+
 
     @Autowired
-    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate) {
+    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate,ObjectMapper objectMapper) {
         this.messageRepository = messageRepository;
-        }
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+    }
 
-    public Message CreateMessage(MessageInput messageInput){
-       Message message = new Message(messageInput.getBody(), messageInput.getHeaders(), messageInput.getHttpmethod(),
-               messageInput.getUrl(), messageInput.getTriggerTime());
+    @Transactional
+    public Message CreateMessage(MessageInput messageInput) throws JsonProcessingException {
+       Message message = new Message();
+        message.setHeaders(new ObjectMapper().readTree(messageInput.getHeaders()));
+        message.setBody(new ObjectMapper().readTree(messageInput.getBody()));
+        message.setMethod(messageInput.getHttpMethodEnum());
+        message.setUrl( messageInput.getUrl());
+        message.setTriggerTime(messageInput.getTriggerTime());
+
         message = messageRepository.save(message);
        return message;
     }
 
+    @Transactional
     public void processDelayedMessage(){
         List<Message> delayedMessages = messageRepository.findByTriggerTimeBeforeAndStatus(Instant.now(),
                 MessageStatus.PENDING);
@@ -49,6 +62,7 @@ public class MessageService<objectMapper> {
         }
     }
 
+    @Transactional
     void processMessage(Message message) {
         try {
             ResponseEntity<String> responseEntity = restTemplate.exchange(createRequestEntity(message), String.class);
@@ -61,7 +75,8 @@ public class MessageService<objectMapper> {
             } else {
                 message.setStatus(MessageStatus.PENDING);
                 message.setRetryCount(message.getRetryCount() + 1);
-                message.setTriggerTime(LocalDateTime.now().plus(Duration.ofSeconds(message.getRetryCount() * 60)));
+                long delayInSeconds = (long) message.getRetryCount() * 60;
+                message.setTriggerTime(LocalDateTime.now().plus(Duration.ofSeconds(delayInSeconds)));
             }
             messageRepository.save(message);
         }
@@ -75,10 +90,12 @@ public class MessageService<objectMapper> {
         headers.setAll(headerMap);
         URI url = URI.create(message.getUrl());
 
-        return new RequestEntity<JsonNode>(
+        return new RequestEntity<>(
                 message.getBody(),headers,
                 message.getMethod(),URI.create(message.getUrl()));
     }
+
+
 
 
 
