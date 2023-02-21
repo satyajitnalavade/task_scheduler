@@ -49,7 +49,7 @@ public class MessageService<objectMapper> {
         }
     }
 
-    private void processMessage(Message message) {
+    void processMessage(Message message) {
         try {
             ResponseEntity<String> responseEntity = restTemplate.exchange(createRequestEntity(message), String.class);
             message.setStatus(MessageStatus.COMPLETE);
