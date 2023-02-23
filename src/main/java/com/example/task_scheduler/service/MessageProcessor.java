@@ -41,7 +41,6 @@ public class MessageProcessor implements Runnable{
     }
 
     @Override
-    @Scheduled(fixedDelayString = "6000")
     @Transactional
     public void run() {
         LOGGER.info("Starting message processing");
