@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,6 +54,7 @@ public class MessageServiceTest {
     public void testProcessMessage_success() throws JsonProcessingException {
         // Setup
         Message message = new Message();
+        message.setId(1L);
         message.setUrl("https://example.com");
         message.setMethod(HttpMethod.POST);
         message.setHeaders(new ObjectMapper().readTree("{\"Content-Type\":\"application/json\"}"));
@@ -60,6 +62,8 @@ public class MessageServiceTest {
         message.setStatus(MessageStatus.PENDING);
         message.setRetryCount(1);
         ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.OK);
+        Optional<Message> optionalMessage = Optional.of(message);
+        when(messageRepository.findByIdForUpdate(any(Long.class))).thenReturn(optionalMessage);
         when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenReturn(responseEntity);
 
         // Execute
@@ -83,6 +87,8 @@ public class MessageServiceTest {
         message.setBody(new ObjectMapper().readTree("{\"name\":\"John\",\"age\":30}"));
         message.setStatus(MessageStatus.PENDING);
         message.setRetryCount(3);
+        Optional<Message> optionalMessage = Optional.of(message);
+        when(messageRepository.findByIdForUpdate(any())).thenReturn(optionalMessage);
         ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.INTERNAL_SERVER_ERROR);
         when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenThrow(new RuntimeException("Internal Server Error"));
 
@@ -109,6 +115,9 @@ public class MessageServiceTest {
         message.setTriggerTime(LocalDateTime.now().minus(Duration.ofSeconds(30)));
 
         ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.INTERNAL_SERVER_ERROR);
+        Optional<Message> optionalMessage = Optional.of(message);
+        when(messageRepository.findByIdForUpdate(any())).thenReturn(optionalMessage);
+
         when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenThrow(new RuntimeException("Internal Server Error"));
 
         // Execute
