@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -47,23 +49,27 @@ public class MessageProcessor {
                 Optional<Message> messageOptional = messageRepository.findByIdForUpdate(message.getId());
                 // Check again if the message is NEW in case another instance of the processor has updated the status
                 if (messageOptional.isPresent() && (messageOptional.get().getStatus() == MessageStatus.PENDING)) {
-                    Message messageToUpdate = messageOptional.get();
-                    ResponseEntity<String> response = restTemplate.exchange(createRequestEntity(messageToUpdate), String.class);
+                    message = messageOptional.get();
+                    ResponseEntity<String> response = restTemplate.exchange(createRequestEntity(message), String.class);
 
                     if (response.getStatusCode() == HttpStatus.OK) {
-                        messageToUpdate.setStatus(MessageStatus.COMPLETE);
-                        messageToUpdate.setRetryCount(message.getRetryCount() + 1);
+                        message.setStatus(MessageStatus.COMPLETE);
+                        message.setRetryCount(message.getRetryCount() + 1);
                     } else {
                         LOGGER.warn("API response returned status code {}", response.getStatusCodeValue());
-                        messageToUpdate.setStatus(MessageStatus.FAILED);
+                        message.setStatus(MessageStatus.FAILED);
                     }
-
-                    messageRepository.save(messageToUpdate);
+                    messageRepository.save(message);
                 } else {
                     LOGGER.info("Message status is {}, skipping processing", message.getStatus());
                 }
 
-            } catch (Exception e) {
+            }
+            catch (OptimisticLockingFailureException | PessimisticLockingFailureException ex) {
+                // handle optimistic locking failure
+                throw new IllegalStateException("Failed to acquire lock on message row.", ex);
+            }
+            catch (Exception e) {
                 if (message.getRetryCount() >= 3) {
                     message.setStatus(MessageStatus.FAILED);
                 } else {

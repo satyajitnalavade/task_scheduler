@@ -9,6 +9,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -76,10 +78,23 @@ public class MessageService<objectMapper> {
     @Transactional
     void processMessage(Message message) {
         try {
-            ResponseEntity<String> responseEntity = restTemplate.exchange(createRequestEntity(message), String.class);
-            message.setStatus(MessageStatus.COMPLETE);
-            message.setRetryCount(message.getRetryCount() + 1);
-            messageRepository.save(message);
+
+            Optional<Message> messageOptional = messageRepository.findByIdForUpdate(message.getId());
+            // Check again if the message is NEW in case another instance of the processor has updated the status
+            if (messageOptional.isPresent() && (messageOptional.get().getStatus() == MessageStatus.PENDING)) {
+                 message = messageOptional.get();
+
+
+                ResponseEntity<String> responseEntity = restTemplate.exchange(createRequestEntity(message), String.class);
+                message.setStatus(MessageStatus.COMPLETE);
+                message.setRetryCount(message.getRetryCount() + 1);
+                messageRepository.save(message);
+            }
+
+        }
+        catch (OptimisticLockingFailureException | PessimisticLockingFailureException ex) {
+            // handle optimistic locking failure
+            throw new IllegalStateException("Failed to acquire lock on message row.", ex);
         } catch (Exception e) {
             if (message.getRetryCount() >= 3) {
                 message.setStatus(MessageStatus.FAILED);
