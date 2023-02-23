@@ -36,7 +36,7 @@ public class MessageService<objectMapper> {
 
 
     @Autowired
-    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate,ObjectMapper objectMapper) {
+    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.messageRepository = messageRepository;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
@@ -44,22 +44,22 @@ public class MessageService<objectMapper> {
 
     @Transactional
     public Message CreateMessage(MessageInput messageInput) throws JsonProcessingException {
-       Message message = new Message();
+        Message message = new Message();
         message.setHeaders(new ObjectMapper().readTree(messageInput.getHeaders()));
         message.setBody(new ObjectMapper().readTree(messageInput.getBody()));
         message.setMethod(messageInput.getHttpMethodEnum());
-        message.setUrl( messageInput.getUrl());
+        message.setUrl(messageInput.getUrl());
         message.setTriggerTime(messageInput.getTriggerTime());
 
         message = messageRepository.save(message);
-       return message;
+        return message;
     }
 
     @Transactional
-    public void processDelayedMessage(){
+    public void processDelayedMessage() {
         List<Message> delayedMessages = getByTriggerTimeBeforeAndStatus(LocalDateTime.now(),
                 MessageStatus.PENDING);
-        for(Message delayedMessage : delayedMessages) {
+        for (Message delayedMessage : delayedMessages) {
             CompletableFuture.runAsync(() -> processMessage(delayedMessage));
         }
     }
@@ -94,18 +94,18 @@ public class MessageService<objectMapper> {
     }
 
 
-
     private RequestEntity<JsonNode> createRequestEntity(Message message) {
         MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode headerNode = message.getHeaders();
-        Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {});
+        Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {
+        });
         headers.setAll(headerMap);
         URI url = URI.create(message.getUrl());
 
         return new RequestEntity<>(
-                message.getBody(),headers,
-                message.getMethod(),URI.create(message.getUrl()));
+                message.getBody(), headers,
+                message.getMethod(), URI.create(message.getUrl()));
     }
 
 

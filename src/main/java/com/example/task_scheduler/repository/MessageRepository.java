@@ -18,8 +18,8 @@ import java.util.Optional;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    @Lock(LockModeType.PESSIMISTIC_READ)
-    @Query("select m from Message m where m.id = :id")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM Message m WHERE m.id = :id")
     Optional<Message> findByIdForUpdate(@Param("id") Long aLong);
 
 

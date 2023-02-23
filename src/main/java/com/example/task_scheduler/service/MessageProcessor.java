@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +46,7 @@ public class MessageProcessor {
                 // Use select ... for update to ensure only one instance of the processor reads a message at a time
                 Optional<Message> messageOptional = messageRepository.findByIdForUpdate(message.getId());
                 // Check again if the message is NEW in case another instance of the processor has updated the status
-                if  (messageOptional.isPresent() && (messageOptional.get().getStatus() == MessageStatus.PENDING)) {
+                if (messageOptional.isPresent() && (messageOptional.get().getStatus() == MessageStatus.PENDING)) {
                     Message messageToUpdate = messageOptional.get();
                     ResponseEntity<String> response = restTemplate.exchange(createRequestEntity(messageToUpdate), String.class);
 
@@ -65,33 +64,33 @@ public class MessageProcessor {
                 }
 
             } catch (Exception e) {
-                    if (message.getRetryCount() >= 3) {
-                        message.setStatus(MessageStatus.FAILED);
-                    } else {
-                        message.setStatus(MessageStatus.PENDING);
-                        message.setRetryCount(message.getRetryCount() + 1);
-                        long delayInSeconds = (long) message.getRetryCount() * 60;
-                        message.setTriggerTime(LocalDateTime.now().plus(Duration.ofSeconds(delayInSeconds)));
-                    }
-                    messageRepository.save(message);
+                if (message.getRetryCount() >= 3) {
+                    message.setStatus(MessageStatus.FAILED);
+                } else {
+                    message.setStatus(MessageStatus.PENDING);
+                    message.setRetryCount(message.getRetryCount() + 1);
+                    long delayInSeconds = (long) message.getRetryCount() * 60;
+                    message.setTriggerTime(LocalDateTime.now().plus(Duration.ofSeconds(delayInSeconds)));
                 }
+                messageRepository.save(message);
             }
+        }
         LOGGER.info("Message processing complete");
     }
 
-private RequestEntity<JsonNode> createRequestEntity(Message message) {
+    private RequestEntity<JsonNode> createRequestEntity(Message message) {
         MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode headerNode = message.getHeaders();
-        Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {});
+        Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {
+        });
         headers.setAll(headerMap);
         URI url = URI.create(message.getUrl());
 
         return new RequestEntity<>(
-        message.getBody(),headers,
-        message.getMethod(),URI.create(message.getUrl()));
-        }
-
+                message.getBody(), headers,
+                message.getMethod(), URI.create(message.getUrl()));
+    }
 
 
 }
