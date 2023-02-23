@@ -12,17 +12,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-import javax.transaction.Transactional;
+
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -55,12 +57,21 @@ public class MessageService<objectMapper> {
 
     @Transactional
     public void processDelayedMessage(){
-        List<Message> delayedMessages = messageRepository.findByTriggerTimeBeforeAndStatus(Instant.now(),
+        List<Message> delayedMessages = getByTriggerTimeBeforeAndStatus(LocalDateTime.now(),
                 MessageStatus.PENDING);
         for(Message delayedMessage : delayedMessages) {
             CompletableFuture.runAsync(() -> processMessage(delayedMessage));
         }
     }
+
+    public List<Message> getByTriggerTimeBetweenAndStatus(LocalDateTime start, LocalDateTime end, MessageStatus status) {
+        return messageRepository.findByTriggerTimeBetweenAndStatus(start, end, status);
+    }
+
+    public List<Message> getByTriggerTimeBeforeAndStatus(LocalDateTime end, MessageStatus messageStatus) {
+        return messageRepository.findByTriggerTimeBeforeAndStatus(end, messageStatus);
+    }
+
 
     @Transactional
     void processMessage(Message message) {
@@ -82,6 +93,8 @@ public class MessageService<objectMapper> {
         }
     }
 
+
+
     private RequestEntity<JsonNode> createRequestEntity(Message message) {
         MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
         ObjectMapper objectMapper = new ObjectMapper();
@@ -96,7 +109,7 @@ public class MessageService<objectMapper> {
     }
 
 
-
-
-
+    public Optional<Message> findByIdForUpdate(Long id) {
+        return messageRepository.findByIdForUpdate(id);
+    }
 }

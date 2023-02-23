@@ -27,5 +27,5 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByTriggerTimeBetweenAndStatus(LocalDateTime start, LocalDateTime end, MessageStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    List<Message> findByTriggerTimeBeforeAndStatus(Instant now, MessageStatus status);
+    List<Message> findByTriggerTimeBeforeAndStatus(LocalDateTime end, MessageStatus status);
 }
