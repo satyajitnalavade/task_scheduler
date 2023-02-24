@@ -2,7 +2,6 @@ package com.example.task_scheduler.models;
 
 import com.example.task_scheduler.enums.MessageStatus;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpMethod;
 
 import java.time.LocalDateTime;
@@ -27,6 +26,9 @@ public class MessageInput {
         this.body = body;
         this.status = status;
         this.triggerTime = triggerTime;
+    }
+
+    public MessageInput() {
     }
 
 

@@ -13,7 +13,6 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
@@ -23,6 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,10 +30,12 @@ import java.util.concurrent.CompletableFuture;
 
 @Service
 public class MessageProcessor implements Runnable{
+
+    private final Logger logger = LoggerFactory.getLogger(MessageService.class);
+
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageProcessor.class);
-    private MessageRepository messageRepository;
+    private final MessageRepository messageRepository;
     private RestTemplate restTemplate;
-    private ObjectMapper objectMapper;
 
     public MessageProcessor(MessageRepository messageRepository, RestTemplate restTemplate) {
         this.messageRepository = messageRepository;
@@ -43,23 +45,27 @@ public class MessageProcessor implements Runnable{
     @Override
     @Transactional
     public void run() {
-        LOGGER.info("Starting message processing");
+        logger.info("Starting message processing");
 
         List<Message> messages = messageRepository.findByTriggerTimeBetweenAndStatus(LocalDateTime.now().minusMinutes(2), LocalDateTime.now(), MessageStatus.PENDING);
-
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (Message message : messages) {
-            CompletableFuture.runAsync(() -> ProcessMessage(message));
+            futures.add(CompletableFuture.runAsync(() -> ProcessMessage(message))
+            .exceptionally(ex -> {
+                logger.error("Exception occurred while processing message with id {}: {}", message.getId(), ex.getMessage());
+                // Handle exceptions here
+                return null;
+            }));
         }
-
-        LOGGER.info("Message processing complete");
+        logger.info("Message processing complete");
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
-
 
 
     @Transactional
     void ProcessMessage(Message message) {
         try {
-            LOGGER.info("Processing message: {}", message);
+            logger.info("Processing message: {}", message);
             // Use select ... for update to ensure only one instance of the processor reads a message at a time
             Optional<Message> messageOptional = messageRepository.findByIdForUpdate(message.getId());
             // Check again if the message is NEW in case another instance of the processor has updated the status
@@ -71,18 +77,19 @@ public class MessageProcessor implements Runnable{
                     message.setStatus(MessageStatus.COMPLETE);
                     message.setRetryCount(message.getRetryCount() + 1);
                 } else {
-                    LOGGER.warn("API response returned status code {}", response.getStatusCodeValue());
+                    logger.warn("API response returned status code {}", response.getStatusCodeValue());
                     message.setStatus(MessageStatus.FAILED);
                 }
                 messageRepository.save(message);
             } else {
-                LOGGER.info("Message status is {}, skipping processing", message.getStatus());
+                logger.info("Message status is {}, skipping processing", message.getStatus());
             }
 
         }
         catch (OptimisticLockingFailureException | PessimisticLockingFailureException ex) {
             // handle optimistic locking failure
-            throw new IllegalStateException("Failed to acquire lock on message row.", ex);
+            logger.error("Exception occurred while processing message with id {}: {}", message.getId(), ex.getMessage());
+            //throw new IllegalStateException("Failed to acquire lock on message row.", ex);
         }
         catch (Exception e) {
             if (message.getRetryCount() >= 3) {
