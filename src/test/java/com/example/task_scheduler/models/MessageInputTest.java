@@ -48,5 +48,24 @@ public class MessageInputTest {
         assertThat(jsonContent).extractingJsonPathStringValue("$.url").isEqualTo("http://example.com");
     }
 
+    @Test
+    public void testDeserialize() throws Exception {
+        MessageInput messageInput = new MessageInput();
+        messageInput.setBody("{\"name\":\"John\",\"age\":30}");
+        messageInput.setHeaders("{\"Content-Type\":\"application/json\"}");
+        messageInput.setUrl("http://example.com");
+        messageInput.setHttpmethod("POST");
+        messageInput.setStatus("PENDING");
+
+        String jsonStr = json.write(messageInput).getJson();
+        MessageInput deserialized = json.parse(jsonStr).getObject();
+
+        assertThat(deserialized.getBody()).isEqualTo("{\"name\":\"John\",\"age\":30}");
+        assertThat(deserialized.getHeaders()).isEqualTo("{\"Content-Type\":\"application/json\"}");
+        assertThat(deserialized.getUrl()).isEqualTo("http://example.com");
+        assertThat(deserialized.getHttpmethod()).isEqualTo("POST");
+        assertThat(deserialized.getStatus()).isEqualTo("PENDING");
+    }
+
 
 }
