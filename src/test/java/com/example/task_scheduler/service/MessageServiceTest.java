@@ -5,7 +5,6 @@ import com.example.task_scheduler.enums.MessageStatus;
 import com.example.task_scheduler.models.MessageInput;
 import com.example.task_scheduler.repository.MessageRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,15 +14,10 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,15 +33,12 @@ public class MessageServiceTest {
     @Mock
     private MessageRepository messageRepository;
 
-    @Mock
-    private ObjectMapper objectMapper;
-
-    private MessageService<Message> messageService;
+    private MessageService messageService;
 
     @BeforeEach
     public void setup() {
         MockitoAnnotations.openMocks(this);
-        messageService = new MessageService<>(messageRepository, restTemplate,objectMapper);
+        messageService = new MessageService(messageRepository, restTemplate);
     }
 
     @Test

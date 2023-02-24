@@ -19,10 +19,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-
 import java.net.URI;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +28,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-public class MessageService<objectMapper> {
+public class MessageService {
 
     private MessageRepository messageRepository;
     private RestTemplate restTemplate;
@@ -38,10 +36,10 @@ public class MessageService<objectMapper> {
 
 
     @Autowired
-    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate) {
         this.messageRepository = messageRepository;
         this.restTemplate = restTemplate;
-        this.objectMapper = objectMapper;
+
     }
 
     @Transactional
