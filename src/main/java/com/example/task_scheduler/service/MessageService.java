@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.RequestEntity;
@@ -35,20 +34,16 @@ public class MessageService {
 
     private final Logger logger = LoggerFactory.getLogger(MessageService.class);
 
-    private MessageRepository messageRepository;
-    private RestTemplate restTemplate;
-    private ObjectMapper objectMapper;
+    private final MessageRepository messageRepository;
+    private final RestTemplate restTemplate;
 
-
-    @Autowired
     public MessageService(MessageRepository messageRepository, RestTemplate restTemplate) {
         this.messageRepository = messageRepository;
         this.restTemplate = restTemplate;
-
     }
 
     @Transactional
-    public Message CreateMessage(MessageInput messageInput) throws JsonProcessingException {
+    public Message createMessage(MessageInput messageInput) throws JsonProcessingException {
         Message message = new Message();
         message.setHeaders(new ObjectMapper().readTree(messageInput.getHeaders()));
         message.setBody(new ObjectMapper().readTree(messageInput.getBody()));
@@ -56,8 +51,13 @@ public class MessageService {
         message.setUrl(messageInput.getUrl());
         message.setTriggerTime(messageInput.getTriggerTime());
 
-        message = messageRepository.save(message);
-        return message;
+        String headersJson = new ObjectMapper().writeValueAsString(message.getHeaders());
+        String bodyJson = new ObjectMapper().writeValueAsString(message.getBody());
+        message.setHeadersJson(headersJson);
+        message.setBodyJson(bodyJson);
+
+        return messageRepository.save(message);
+
     }
 
 

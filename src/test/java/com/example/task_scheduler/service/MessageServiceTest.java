@@ -138,7 +138,7 @@ public class MessageServiceTest {
         });
 
         // Call createMessage()
-        Message result = messageService.CreateMessage(messageInput);
+        Message result = messageService.createMessage(messageInput);
 
         // Verify the message was saved with the correct data
         assertEquals(1L, result.getId());

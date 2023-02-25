@@ -19,8 +19,8 @@ public class MessageController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<Message> createMessage(@RequestBody MessageInput message) throws JsonProcessingException {
-        Message createdMessage = messageService.CreateMessage(message);
+    public ResponseEntity<Message> createMessage(@RequestBody MessageInput messageInput) throws JsonProcessingException {
+        Message createdMessage = messageService.createMessage(messageInput);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdMessage);
     }
 

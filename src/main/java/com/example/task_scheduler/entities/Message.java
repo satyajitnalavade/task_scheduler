@@ -7,10 +7,9 @@ import lombok.*;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 import org.springframework.http.HttpMethod;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 
 
 @Getter
@@ -51,6 +50,8 @@ public class Message {
     @Column(name= "retry_count", columnDefinition="integer default 3")
     private int retryCount;
 
+    private String headersJson;
+    private String bodyJson;
 
     public Message(JsonNode body, JsonNode headers, HttpMethod method, String url, LocalDateTime triggerTime) {
         this.body = body;
@@ -61,7 +62,11 @@ public class Message {
     }
 
 
+    public void setHeadersJson(String headersJson) {
+        this.headersJson=headersJson;
+    }
 
-
-
+    public void setBodyJson(String bodyJson) {
+        this.bodyJson=bodyJson;
+    }
 }
