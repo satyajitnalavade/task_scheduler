@@ -8,10 +8,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -22,13 +23,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith(SpringExtension.class)
+@WebMvcTest
 class MessageControllerTest {
 
-    @Mock
+    @MockBean
     private MessageService messageService;
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private MockMvc mockMvc;
 
@@ -48,6 +50,7 @@ class MessageControllerTest {
         messageInput.setBody("{\"name\":\"John\",\"age\":30}");
         messageInput.setHeaders("{\"Content-Type\":\"application/json\"}");
         messageInput.setStatus(MessageStatus.PENDING.toString());
+        String jsonBody = objectMapper.writeValueAsString(messageInput);
 
         Message message = new Message();
         message.setId(1L);
@@ -61,7 +64,7 @@ class MessageControllerTest {
         message.setStatus(MessageStatus.PENDING);
         message.setRetryCount(1);
         given(messageService.createMessage(any(MessageInput.class))).willReturn(message);
-        String jsonBody = objectMapper.writeValueAsString(messageInput);
+
 
         mockMvc.perform(post("/messages/create")
                 .contentType(MediaType.APPLICATION_JSON)

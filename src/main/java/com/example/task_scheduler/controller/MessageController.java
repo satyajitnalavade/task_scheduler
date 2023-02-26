@@ -24,7 +24,7 @@ public class MessageController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdMessage);
     }
 
-    @PutMapping("/process-delayed")
+    @GetMapping("/process-delayed")
     public ResponseEntity<String> processDelayedMessage(Message message) {
         messageService.processDelayedMessage();
         return ResponseEntity.ok().build();
