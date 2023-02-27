@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Service
+//@Transactional
 public class MessageService {
 
     private final Logger logger = LoggerFactory.getLogger(MessageService.class);
@@ -62,7 +63,7 @@ public class MessageService {
 
 
 
-    @Transactional
+   // @Transactional
     public void processDelayedMessage() {
         List<Message> delayedMessages = messageRepository.findByTriggerTimeBeforeAndStatus (LocalDateTime.now(),
                     MessageStatus.PENDING);
@@ -88,7 +89,7 @@ public class MessageService {
     }
 
 
-    @Transactional
+   // @Transactional
     void processMessage(Message message) {
         try {
             Optional<Message> messageOptional = messageRepository.findByIdForUpdate(message.getId());

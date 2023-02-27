@@ -16,15 +16,15 @@ import java.util.Optional;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+  //  @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM Message m WHERE m.id = :id")
     Optional<Message> findByIdForUpdate(@Param("id") Long aLong);
 
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+  //  @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Message> findByTriggerTimeBetweenAndStatus(LocalDateTime start, LocalDateTime end, MessageStatus status);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+  //  @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Message> findByTriggerTimeBeforeAndStatus(LocalDateTime end, MessageStatus status);
 
 

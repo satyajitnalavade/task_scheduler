@@ -35,7 +35,7 @@ public class MessageInputTest {
         messageInput.setBody("{\"name\":\"John\",\"age\":30}");
         messageInput.setHeaders("{\"Content-Type\":\"application/json\"}");
         messageInput.setUrl("http://example.com");
-        messageInput.setHttpmethod("POST");
+        messageInput.setHttpMethod("POST");
         messageInput.setStatus("PENDING");
 
         JsonContent<MessageInput> jsonContent = json.write(messageInput);
@@ -54,7 +54,7 @@ public class MessageInputTest {
         messageInput.setBody("{\"name\":\"John\",\"age\":30}");
         messageInput.setHeaders("{\"Content-Type\":\"application/json\"}");
         messageInput.setUrl("http://example.com");
-        messageInput.setHttpmethod("POST");
+        messageInput.setHttpMethod("POST");
         messageInput.setStatus("PENDING");
 
         String jsonStr = json.write(messageInput).getJson();

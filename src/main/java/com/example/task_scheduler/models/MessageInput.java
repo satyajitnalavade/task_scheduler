@@ -44,7 +44,7 @@ public class MessageInput {
         return httpmethod;
     }
 
-    public void setHttpmethod(String httpmethod) {
+    public void setHttpMethod(String httpmethod) {
         this.httpmethod = httpmethod;
     }
 

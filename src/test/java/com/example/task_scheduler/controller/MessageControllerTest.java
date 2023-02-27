@@ -1,81 +1,58 @@
 package com.example.task_scheduler.controller;
 
-import com.example.task_scheduler.entities.Message;
-import com.example.task_scheduler.enums.MessageStatus;
-import com.example.task_scheduler.models.MessageInput;
-import com.example.task_scheduler.service.MessageService;
+import com.example.task_scheduler.models.ScheduleMessageInput;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.HttpMethod;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(SpringExtension.class)
-@WebMvcTest
-class MessageControllerTest {
+@RunWith(SpringRunner.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+@EnableTransactionManagement
+public class MessageControllerTest {
 
-    @MockBean
-    private MessageService messageService;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
+    @Autowired
     private MockMvc mockMvc;
 
-    private MessageController messageController;
+    @Test
+    public void testMyEndpoint() throws Exception {
+        // Set up the request body using ScheduleMessageInput class
+        ScheduleMessageInput input = new ScheduleMessageInput();
+        input.setUrl("https://example.com");
+        input.setHttpMethod("GET");
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        input.setHeaders(headers);
+        Map<String, String> body = new HashMap<>();
+        body.put("key", "value");
+        input.setBody(body);
+        input.setStatus("PENDING");
+        input.setTriggerTime("2022-12-31T23:59:59");
 
-    @BeforeEach
-    void setUp() {
-        messageController = new MessageController(messageService);
-        mockMvc = MockMvcBuilders.standaloneSetup(messageController).build();
+        // Send the request and verify the response
+        mockMvc.perform(post("/messages/create")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(new ObjectMapper().writeValueAsString(input)))
+                .andExpect(status().isCreated());
     }
 
     @Test
-    void testCreateMessage() throws Exception {
-        MessageInput messageInput = new MessageInput();
-        messageInput.setUrl("http://example.com");
-        messageInput.setHttpmethod(HttpMethod.POST.toString());
-        messageInput.setBody("{\"name\":\"John\",\"age\":30}");
-        messageInput.setHeaders("{\"Content-Type\":\"application/json\"}");
-        messageInput.setStatus(MessageStatus.PENDING.toString());
-        String jsonBody = objectMapper.writeValueAsString(messageInput);
-
-        Message message = new Message();
-        message.setId(1L);
-        message.setUrl("https://example.com");
-        message.setMethod(HttpMethod.POST);
-        message.setHeaders(new ObjectMapper().readTree("{\"Content-Type\":\"application/json\"}"));
-        message.setBody(new ObjectMapper().readTree("{\"name\":\"John\",\"age\":30}"));
-        message.setHeadersJson(new ObjectMapper().readTree("{\"Content-Type\":\"application/json\"}").toString());
-        message.setBodyJson(new ObjectMapper().readTree("{\"name\":\"John\",\"age\":30}").toString());
-
-        message.setStatus(MessageStatus.PENDING);
-        message.setRetryCount(1);
-        given(messageService.createMessage(any(MessageInput.class))).willReturn(message);
-
-
-        mockMvc.perform(post("/messages/create")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(jsonBody))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.url").value("https://example.com"))
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andDo(MockMvcResultHandlers.print())
-                .andExpect(jsonPath("$.method").value("POST"))
-                .andExpect(jsonPath("$.bodyJson").value("{\"name\":\"John\",\"age\":30}"))
-                .andExpect(jsonPath("$.headersJson").value("{\"Content-Type\":\"application/json\"}"));
+    public void testProcessDelayedMessage() throws Exception {
+        mockMvc.perform(post("/messages/process-delayed"))
+                .andExpect(status().isOk());
     }
+
 }

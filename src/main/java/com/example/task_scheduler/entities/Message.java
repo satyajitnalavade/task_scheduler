@@ -47,8 +47,8 @@ public class Message {
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.PENDING;
 
-    @Column(name= "retry_count", columnDefinition="integer default 3")
-    private int retryCount;
+    @Column(name= "retry_count", columnDefinition="integer")
+    private int retryCount=0;
 
     private String headersJson;
     private String bodyJson;
