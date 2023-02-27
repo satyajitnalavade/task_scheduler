@@ -65,7 +65,7 @@ public class MessageService {
 
    // @Transactional
     public void processDelayedMessage() {
-        List<Message> delayedMessages = messageRepository.findByTriggerTimeBeforeAndStatus (LocalDateTime.now(),
+        List<Message> delayedMessages = messageRepository.findByTriggerTimeBeforeAndStatus(LocalDateTime.now(),
                     MessageStatus.PENDING);
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -80,12 +80,12 @@ public class MessageService {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
-    public List<Message> getByTriggerTimeBetweenAndStatus(LocalDateTime start, LocalDateTime end, MessageStatus status) {
+    /*public List<Message> getByTriggerTimeBetweenAndStatus(LocalDateTime start, LocalDateTime end, MessageStatus status) {
         return messageRepository.findByTriggerTimeBetweenAndStatus(start, end, status);
-    }
+    }*/
 
     public List<Message> getByTriggerTimeBeforeAndStatus(LocalDateTime end, MessageStatus messageStatus) {
-        return messageRepository.findByTriggerTimeBeforeAndStatus(end, messageStatus);
+        return messageRepository.findByTriggerTimeBeforeAndStatus(end,messageStatus );
     }
 
 
@@ -97,6 +97,7 @@ public class MessageService {
             if (messageOptional.isPresent() && (messageOptional.get().getStatus() == MessageStatus.PENDING)) {
                  message = messageOptional.get();
                 ResponseEntity<String> responseEntity = restTemplate.exchange(createRequestEntity(message), String.class);
+                logger.info("Response entity: {}", responseEntity.getBody());
                 message.setStatus(MessageStatus.COMPLETE);
                 message.setRetryCount(message.getRetryCount() + 1);
                 messageRepository.save(message);
@@ -123,14 +124,19 @@ public class MessageService {
         MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode headerNode = message.getHeaders();
-        Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {
-        });
-        headers.setAll(headerMap);
+        if (headerNode != null && headerNode.size() != 0) {
+            Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {
+            });
+            headers.setAll(headerMap);
+        }
         URI url = URI.create(message.getUrl());
 
-        return new RequestEntity<>(
-                message.getBody(), headers,
-                message.getMethod(), URI.create(message.getUrl()));
+        JsonNode bodyNode = message.getBody();
+        if (bodyNode != null && bodyNode.size() != 0) {
+            return new RequestEntity<>(bodyNode, headers, message.getMethod(), url);
+        } else {
+            return new RequestEntity<>(null, headers, message.getMethod(), url);
+        }
     }
 
 

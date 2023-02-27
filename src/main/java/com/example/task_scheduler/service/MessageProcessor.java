@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -43,11 +42,10 @@ public class MessageProcessor implements Runnable{
     }
 
     @Override
-    @Transactional
     public void run() {
         logger.info("Starting message processing");
 
-        List<Message> messages = messageRepository.findByTriggerTimeBetweenAndStatus(LocalDateTime.now().minusMinutes(2), LocalDateTime.now(), MessageStatus.PENDING);
+        List<Message> messages = messageRepository.findByTriggerTimeBetweenAndStatus(LocalDateTime.now().minusDays(20), LocalDateTime.now(), MessageStatus.PENDING);
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (Message message : messages) {
             futures.add(CompletableFuture.runAsync(() -> ProcessMessage(message))
@@ -62,7 +60,7 @@ public class MessageProcessor implements Runnable{
     }
 
 
-    @Transactional
+    //@Transactional
     void ProcessMessage(Message message) {
         try {
             logger.info("Processing message: {}", message);
@@ -72,6 +70,7 @@ public class MessageProcessor implements Runnable{
             if (messageOptional.isPresent() && (messageOptional.get().getStatus() == MessageStatus.PENDING)) {
                 message = messageOptional.get();
                 ResponseEntity<String> response = restTemplate.exchange(createRequestEntity(message), String.class);
+                logger.info("Response entity: {}", response.getBody());
 
                 if (response.getStatusCode() == HttpStatus.OK) {
                     message.setStatus(MessageStatus.COMPLETE);
@@ -108,16 +107,20 @@ public class MessageProcessor implements Runnable{
         MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode headerNode = message.getHeaders();
-        Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {
-        });
-        headers.setAll(headerMap);
+        if (headerNode != null && headerNode.size() != 0) {
+            Map<String, String> headerMap = objectMapper.convertValue(headerNode, new TypeReference<Map<String, String>>() {
+            });
+            headers.setAll(headerMap);
+        }
         URI url = URI.create(message.getUrl());
 
-        return new RequestEntity<>(
-                message.getBody(), headers,
-                message.getMethod(), URI.create(message.getUrl()));
+        JsonNode bodyNode = message.getBody();
+        if (bodyNode != null && bodyNode.size() != 0) {
+            return new RequestEntity<>(bodyNode, headers, message.getMethod(), url);
+        } else {
+            return new RequestEntity<>(null, headers, message.getMethod(), url);
+        }
     }
-
 
 
 }
