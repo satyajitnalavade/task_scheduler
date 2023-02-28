@@ -1,11 +1,15 @@
 # Delay Queue Implementation using Spring Boot and Postgres
 
-This is a Proof of Concept (POC) implementation of a Delay Queue using Spring Boot, Postgres, and Redis. The Delay Queue stores a set of messages and their scheduled trigger time in a Postgres database. A Message Processor retrieves the messages from the Postgres database and stores them in a Redis Sorted Set. A Message Service retrieves the messages from the Redis Sorted Set and processes them.
+This is a Proof of Concept (POC) implementation of a Delay Queue using Spring Boot, Postgres. The Delay Queue stores a set of messages and their scheduled trigger time in a Postgres database. A Message Processor retrieves the messages from the Postgres database and stores them in a Redis Sorted Set. 
+A Message Service retrieves the messages from the Redis Sorted Set and processes them.
+
+
 
 ## Requirements
 - Java 8
 - Spring Boot
 - PostgreSQL
+
 
 
 ##  Getting Started
