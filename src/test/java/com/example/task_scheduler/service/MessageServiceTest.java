@@ -10,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
@@ -33,12 +35,16 @@ public class MessageServiceTest {
     @Mock
     private MessageRepository messageRepository;
 
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
     private MessageService messageService;
+
 
     @BeforeEach
     public void setup() {
         MockitoAnnotations.openMocks(this);
-        messageService = new MessageService(messageRepository, restTemplate);
+        messageService = new MessageService(messageRepository, restTemplate,redisTemplate);
     }
 
     @Test
@@ -56,6 +62,13 @@ public class MessageServiceTest {
         Optional<Message> optionalMessage = Optional.of(message);
         when(messageRepository.findByIdForUpdate(any(Long.class))).thenReturn(optionalMessage);
         when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenReturn(responseEntity);
+        // create a mock RedisOperations object
+        ValueOperations<String, Object> redisOperations = org.mockito.Mockito.mock(ValueOperations.class);
+        // set up the RedisTemplate mock to return the RedisOperations mock
+        when(redisTemplate.opsForValue()).thenReturn(redisOperations);
+        // set up the RedisOperations mock to return true when setIfAbsent is called
+        when(redisOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+
 
         // Execute
         messageService.processMessage(message);
@@ -82,6 +95,13 @@ public class MessageServiceTest {
         when(messageRepository.findByIdForUpdate(any())).thenReturn(optionalMessage);
         ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.INTERNAL_SERVER_ERROR);
         when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenThrow(new RuntimeException("Internal Server Error"));
+        // create a mock RedisOperations object
+        ValueOperations<String, Object> redisOperations = org.mockito.Mockito.mock(ValueOperations.class);
+        // set up the RedisTemplate mock to return the RedisOperations mock
+        when(redisTemplate.opsForValue()).thenReturn(redisOperations);
+        // set up the RedisOperations mock to return true when setIfAbsent is called
+        when(redisOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+
 
         // Execute
         messageService.processMessage(message);
@@ -108,8 +128,14 @@ public class MessageServiceTest {
         ResponseEntity<String> responseEntity = new ResponseEntity<>("", HttpStatus.INTERNAL_SERVER_ERROR);
         Optional<Message> optionalMessage = Optional.of(message);
         when(messageRepository.findByIdForUpdate(any())).thenReturn(optionalMessage);
-
         when(restTemplate.exchange(any(RequestEntity.class), eq(String.class))).thenThrow(new RuntimeException("Internal Server Error"));
+        // create a mock RedisOperations object
+        ValueOperations<String, Object> redisOperations = org.mockito.Mockito.mock(ValueOperations.class);
+        // set up the RedisTemplate mock to return the RedisOperations mock
+        when(redisTemplate.opsForValue()).thenReturn(redisOperations);
+        // set up the RedisOperations mock to return true when setIfAbsent is called
+        when(redisOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+
 
         // Execute
         messageService.processMessage(message);

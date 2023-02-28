@@ -8,8 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -21,24 +20,22 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-public class MessageProcessor implements Runnable{
+public class MessageProcessor implements Runnable {
 
-    private final Logger logger = LoggerFactory.getLogger(MessageService.class);
+    private final Logger logger = LoggerFactory.getLogger(MessageProcessor.class);
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageProcessor.class);
     private final MessageRepository messageRepository;
     private RestTemplate restTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
 
-    public MessageProcessor(MessageRepository messageRepository, RestTemplate restTemplate) {
+    public MessageProcessor(MessageRepository messageRepository, RestTemplate restTemplate, RedisTemplate<String, Object> redisTemplate) {
         this.messageRepository = messageRepository;
         this.restTemplate = restTemplate;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -49,21 +46,33 @@ public class MessageProcessor implements Runnable{
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (Message message : messages) {
             futures.add(CompletableFuture.runAsync(() -> ProcessMessage(message))
-            .exceptionally(ex -> {
-                logger.error("Exception occurred while processing message with id {}: {}", message.getId(), ex.getMessage());
-                // Handle exceptions here
-                return null;
-            }));
+                    .exceptionally(ex -> {
+                        logger.error("Exception occurred while processing message with id {}: {}", message.getId(), ex.getMessage());
+                        // Handle exceptions here
+                        return null;
+                    }));
         }
         logger.info("Message processing complete");
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
-
-    //@Transactional
     void ProcessMessage(Message message) {
+
+        logger.info("Processing message: {}", message);
+        // Generate a unique lock key for the message
+        String lockKey = "message:" + message.getId();
+        // Try to acquire the lock on the message
+        String lockValue = UUID.randomUUID().toString();
+
+        boolean lockAcquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, Duration.ofSeconds(30));
+
+        if (!lockAcquired) {
+            // Another instance is already processing this message
+            logger.info("Message already being processed by another instance: {}", message.getId());
+            return;
+        }
+
         try {
-            logger.info("Processing message: {}", message);
             // Use select ... for update to ensure only one instance of the processor reads a message at a time
             Optional<Message> messageOptional = messageRepository.findByIdForUpdate(message.getId());
             // Check again if the message is NEW in case another instance of the processor has updated the status
@@ -84,13 +93,9 @@ public class MessageProcessor implements Runnable{
                 logger.info("Message status is {}, skipping processing", message.getStatus());
             }
 
-        }
-        catch (OptimisticLockingFailureException | PessimisticLockingFailureException ex) {
-            // handle optimistic locking failure
+        } catch (Exception ex) {
+
             logger.error("Exception occurred while processing message with id {}: {}", message.getId(), ex.getMessage());
-            //throw new IllegalStateException("Failed to acquire lock on message row.", ex);
-        }
-        catch (Exception e) {
             if (message.getRetryCount() >= 3) {
                 message.setStatus(MessageStatus.FAILED);
             } else {
@@ -100,6 +105,12 @@ public class MessageProcessor implements Runnable{
                 message.setTriggerTime(LocalDateTime.now().plus(Duration.ofSeconds(delayInSeconds)));
             }
             messageRepository.save(message);
+        } finally {
+            // Release the lock on the message
+            String lockValueInRedis = (String) redisTemplate.opsForValue().get(lockKey);
+            if (lockValue.equals(lockValueInRedis)) {
+                redisTemplate.delete(lockKey);
+            }
         }
     }
 

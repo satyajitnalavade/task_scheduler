@@ -10,8 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -23,10 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -37,10 +33,12 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final RestTemplate restTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
 
-    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate) {
+    public MessageService(MessageRepository messageRepository, RestTemplate restTemplate, RedisTemplate<String, Object> redisTemplate) {
         this.messageRepository = messageRepository;
         this.restTemplate = restTemplate;
+        this.redisTemplate = redisTemplate;
     }
 
     @Transactional
@@ -91,6 +89,20 @@ public class MessageService {
 
    // @Transactional
     void processMessage(Message message) {
+        logger.info("Processing message: {}", message);
+        // Generate a unique lock key for the message
+        String lockKey = "message:" + message.getId();
+        // Try to acquire the lock on the message
+        String lockValue = UUID.randomUUID().toString();
+
+        boolean lockAcquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, Duration.ofSeconds(30));
+
+        if (!lockAcquired) {
+            // Another instance is already processing this message
+            logger.info("Message already being processed by another instance: {}", message.getId());
+            return;
+        }
+
         try {
             Optional<Message> messageOptional = messageRepository.findByIdForUpdate(message.getId());
             // Check again if the message is NEW in case another instance of the processor has updated the status
@@ -103,10 +115,7 @@ public class MessageService {
                 messageRepository.save(message);
             }
         }
-        catch (OptimisticLockingFailureException | PessimisticLockingFailureException ex) {
-            // handle optimistic locking failure
-            throw new IllegalStateException("Failed to acquire lock on message row.", ex);
-        } catch (Exception e) {
+        catch (Exception e) {
             if (message.getRetryCount() >= 3) {
                 message.setStatus(MessageStatus.FAILED);
             } else {
@@ -116,6 +125,12 @@ public class MessageService {
                 message.setTriggerTime(LocalDateTime.now().plus(Duration.ofSeconds(delayInSeconds)));
             }
             messageRepository.save(message);
+        } finally {
+            // Release the lock on the message
+            String lockValueInRedis = (String) redisTemplate.opsForValue().get(lockKey);
+            if (lockValue.equals(lockValueInRedis)) {
+                redisTemplate.delete(lockKey);
+            }
         }
     }
 
